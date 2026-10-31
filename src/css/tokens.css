@@ -1,0 +1,60 @@
+/* مفهوم التخطيط: خيط واحد يمرّ بكل شيء.
+   التنقل = خرزات على خيط الترويسة، الدروس = خرزات على خيط عمودي،
+   حالة المعرفة = خيط تتراكم عليه خرزات حقيقية. تركيب الصفحات غير متماثل، بلا شبكة بطاقات موحّدة. */
+:root{
+  /* ورق وحبر */
+  --paper:#F3F5F2; --paper-2:#E8ECE7; --card:#FFFFFF;
+  --ink:#14283A; --ink-2:#4B5E6D; --line:#D3DAD3;
+  /* الخيط الأحمر: اللون الأساسي للعلامة */
+  --thread:#E4472F; --thread-ink:#BE3822; --thread-soft:#FBDDD6;
+  /* ألوان الخرز (مجالات المعرفة) */
+  --c-saffron:#F2B632; --c-teal:#1FA38D; --c-sky:#4A8CE0; --c-rose:#E4688F; --c-leaf:#7DAE3A;
+  --s-saffron:#FCEEC8; --s-teal:#D2EEE8; --s-sky:#DBE8FA; --s-rose:#F9DCE6; --s-leaf:#E3EFD0;
+  --on-bead:#14283A; --focus:#2F6FE0; --scrim:rgba(10,22,32,.55);
+  --danger:#B3341F; --danger-fg:#FFFFFF;
+  /* شخصية خريزة (ثابتة في الوضعين) */
+  --m-body:#F2B632; --m-ink:#14283A; --m-cheek:#FF8E78; --m-shine:#FFFFFF;
+  /* الخطوط */
+  --f-display:'Reem Kufi','Noto Kufi Arabic','Segoe UI',Tahoma,sans-serif;
+  --f-read:'Noto Naskh Arabic','Amiri','Traditional Arabic','Times New Roman',serif;
+  --f-ui:'IBM Plex Sans Arabic','Segoe UI',Tahoma,'Noto Sans Arabic',sans-serif;
+  /* مقاس النص */
+  --t-xs:.8125rem; --t-s:.9375rem; --t-m:1rem; --t-l:1.125rem; --t-xl:1.4rem;
+  --t-2xl:clamp(1.7rem,3.6vw,2.4rem); --t-3xl:clamp(2.1rem,5.4vw,3.6rem);
+  /* شكل ومسافات */
+  --r-s:10px; --r-m:16px; --r-l:28px;
+  --sp-1:.25rem; --sp-2:.5rem; --sp-3:.75rem; --sp-4:1rem; --sp-5:1.5rem; --sp-6:2.25rem; --sp-7:3.5rem;
+  --shadow:0 1px 0 rgba(20,40,58,.05),0 14px 34px -22px rgba(20,40,58,.45);
+  --sec:var(--c-saffron); --sec-soft:var(--s-saffron);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0E1A26; --paper-2:#0A141D; --card:#162636;
+    --ink:#E9EFEA; --ink-2:#A3B4C0; --line:#28394A;
+    --thread:#FF7A60; --thread-ink:#FF9680; --thread-soft:#43241F;
+    --c-saffron:#F5C24D; --c-teal:#3DBBA5; --c-sky:#6EA6EE; --c-rose:#F08BAA; --c-leaf:#97C654;
+    --s-saffron:#3A3115; --s-teal:#14362F; --s-sky:#17304F; --s-rose:#43202F; --s-leaf:#2A3A17;
+    --on-bead:#0E1A26; --focus:#8DB8FF; --scrim:rgba(0,0,0,.65);
+    --danger:#FF9680; --danger-fg:#14283A;
+    --shadow:0 1px 0 rgba(0,0,0,.4),0 14px 34px -22px rgba(0,0,0,.8);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0E1A26; --paper-2:#0A141D; --card:#162636;
+  --ink:#E9EFEA; --ink-2:#A3B4C0; --line:#28394A;
+  --thread:#FF7A60; --thread-ink:#FF9680; --thread-soft:#43241F;
+  --c-saffron:#F5C24D; --c-teal:#3DBBA5; --c-sky:#6EA6EE; --c-rose:#F08BAA; --c-leaf:#97C654;
+  --s-saffron:#3A3115; --s-teal:#14362F; --s-sky:#17304F; --s-rose:#43202F; --s-leaf:#2A3A17;
+  --on-bead:#0E1A26; --focus:#8DB8FF; --scrim:rgba(0,0,0,.65);
+  --danger:#FF9680; --danger-fg:#14283A;
+  --shadow:0 1px 0 rgba(0,0,0,.4),0 14px 34px -22px rgba(0,0,0,.8);
+  color-scheme:dark;
+}
+/* لون كل قسم */
+[data-sec="home"]{--sec:var(--c-saffron);--sec-soft:var(--s-saffron)}
+[data-sec="academy"]{--sec:var(--c-teal);--sec-soft:var(--s-teal)}
+[data-sec="wiki"]{--sec:var(--c-sky);--sec-soft:var(--s-sky)}
+[data-sec="library"]{--sec:var(--c-rose);--sec-soft:var(--s-rose)}
+[data-sec="review"]{--sec:var(--thread);--sec-soft:var(--thread-soft)}
+[data-sec="graph"]{--sec:var(--c-leaf);--sec-soft:var(--s-leaf)}

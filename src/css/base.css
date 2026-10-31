@@ -1,0 +1,33 @@
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:auto}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 var(--t-m)/1.75 var(--f-ui);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--paper);z-index:60}
+h1,h2,h3,h4{margin:0;font-family:var(--f-display);font-weight:600;line-height:1.4;text-wrap:balance}
+h1{font-size:var(--t-3xl);line-height:1.3}
+h2{font-size:var(--t-2xl)}
+h3{font-size:var(--t-xl)}
+h4{font-size:var(--t-l)}
+p{margin:0}
+a{color:inherit;text-decoration-color:var(--thread);text-underline-offset:.28em;text-decoration-thickness:2px}
+a:hover{color:var(--thread-ink)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+img,svg{max-width:100%}
+ul,ol{margin:0;padding:0;list-style:none}
+:focus-visible{outline:3px solid var(--focus);outline-offset:3px;border-radius:6px}
+::selection{background:var(--c-saffron);color:#14283A}
+bdi,[dir="auto"]{unicode-bidi:plaintext}
+.num{font-variant-numeric:tabular-nums}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.muted{color:var(--ink-2)}
+.read{font-family:var(--f-read);font-size:1.2rem;line-height:2.05}
+.lead{font-family:var(--f-read);font-size:1.3rem;line-height:1.95;color:var(--ink)}
+.eyebrow{font-size:var(--t-xs);letter-spacing:.04em;color:var(--ink-2);font-weight:500}
+.ltr{direction:ltr;unicode-bidi:isolate;display:inline-block}
+.skip{position:absolute;inset-inline-start:12px;top:-60px;z-index:100;background:var(--ink);color:var(--paper);border:0;border-radius:var(--r-s);padding:.6rem 1rem}
+.skip:focus{top:calc(env(safe-area-inset-top,0px) + 8px)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* عناصر تستقبل التركيز برمجياً عند تغيّر الصفحة، وليست تفاعلية */
+[tabindex="-1"]:focus{outline:0}
