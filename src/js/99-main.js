@@ -1,6 +1,6 @@
 /* ═══ الإقلاع ═══ */
 window.NASAQ = {
-  version: '0.3.1',
+  version: '0.3.2',
   /* ربط مساعد حقيقي لاحقاً: دالة تستقبل { command, question, context, prompt } وتعيد نصاً */
   setAssistantProvider(fn) { ASSIST.provider = typeof fn === 'function' ? fn : null; },
   srs: SRS

@@ -30,7 +30,8 @@ def reply(prompt):
     if 'ردّ بكلمة واحدة' in prompt: return 'تمام'
     return 'جواب تجريبي من النموذج.'
 
-CORS = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS',
+BUSY = {'n': 0}
+CORS = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'content-type, authorization, x-api-key, anthropic-version, anthropic-dangerous-direct-browser-access, x-goog-api-key'}
 def jr(code, obj, extra=None): return code, dict(CORS, **{'Content-Type': 'application/json'}, **(extra or {})), json.dumps(obj, ensure_ascii=False).encode()
 def handle(method, path, h, body):
@@ -41,6 +42,14 @@ def handle(method, path, h, body):
     with LOCK: ACT['cur'] += 1; ACT['max'] = max(ACT['max'], ACT['cur'])
     try:
         time.sleep(0.05)
+        if method == 'GET':
+            if path.startswith('/gemini/v1beta/models'):
+                if h.get('x-goog-api-key') != 'g-key-1': return jr(403, {'error': {'message': 'API key not valid'}})
+                return jr(200, {'models': [{'name': 'models/gemini-3.8-flash', 'supportedGenerationMethods': ['generateContent']}, {'name': 'models/embedding-001', 'supportedGenerationMethods': ['embedContent']}, {'name': 'models/gemini-3.8-pro', 'supportedGenerationMethods': ['generateContent']}]})
+            if path.startswith('/v1/models'):
+                if h.get('authorization') != 'Bearer sk-test-123': return jr(401, {'error': {'message': 'missing key'}})
+                return jr(200, {'data': [{'id': 'zeta-1'}, {'id': 'alpha-1'}]})
+            return jr(404, {'error': 'no route'})
         if path.endswith('/chat/completions'):
             auth = h.get('authorization', ''); m = j.get('model', '')
             if auth.startswith('Bearer bad'): return jr(401, {'error': {'message': 'Incorrect API key provided: ' + auth[7:] + ' (sk-live-abcdef123456 also seen)'}})
@@ -61,6 +70,10 @@ def handle(method, path, h, body):
         m = re.search(r'/gemini/v1beta/models/([^/:]+):generateContent', path)
         if m:
             if h.get('x-goog-api-key') != 'g-key-1': return jr(403, {'error': {'message': 'API key not valid'}})
+            if m.group(1) == 'busy':
+                BUSY['n'] += 1
+                if BUSY['n'] <= 1: return jr(503, {'error': {'code': 503, 'message': 'This model is currently experiencing high demand.', 'status': 'UNAVAILABLE'}})
+            if m.group(1) == 'busyalways': return jr(503, {'error': {'code': 503, 'message': 'This model is currently experiencing high demand.', 'status': 'UNAVAILABLE'}})
             if m.group(1) == 'blocked': return jr(200, {'promptFeedback': {'blockReason': 'SAFETY'}})
             return jr(200, {'candidates': [{'content': {'parts': [{'text': reply(j['contents'][0]['parts'][0]['text'])}]}, 'finishReason': 'STOP'}]})
         return jr(404, {'error': 'no route'})
@@ -74,7 +87,7 @@ class H(BaseHTTPRequestHandler):
         self.send_response(code)
         for k, v in hd.items(): self.send_header(k, v)
         self.send_header('Content-Length', str(len(out))); self.end_headers(); self.wfile.write(out)
-    do_POST = do_OPTIONS = _go
+    do_POST = do_OPTIONS = do_GET = _go
     def log_message(self, *a): pass
 srv = ThreadingHTTPServer(('127.0.0.1', 0), H); PORT = srv.server_address[1]
 threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -141,11 +154,11 @@ with sync_playwright() as p:
     pg.select_option('select[name=preset]', 'gemini'); check(pg.locator('input[name=base]').input_value().startswith('https://generativelanguage.googleapis.com/v1beta'), 'Gemini: عنوان')
     # تحقق الإدخال
     pg.select_option('select[name=preset]', 'openrouter'); pg.click('form[data-form="aimodel"] button[type=submit]'); pg.wait_for_timeout(100)
-    check('اسم النموذج' in pg.inner_text('#toasts') and pg.locator('form[data-form="aimodel"]').count() == 1, 'بدون اسم نموذج: رسالة والنموذج يبقى')
+    check('اسم النموذج' in pg.inner_text('#ai-test-res') and pg.locator('form[data-form="aimodel"]').count() == 1, 'بدون اسم نموذج: رسالة والنموذج يبقى')
     pg.fill('input[name=model]', 'm'); pg.click('form[data-form="aimodel"] button[type=submit]'); pg.wait_for_timeout(100)
-    check('يحتاج مفتاح' in pg.inner_text('#toasts'), 'مزوّد يتطلب مفتاحاً: رسالة')
+    check('يحتاج مفتاح' in pg.inner_text('#ai-test-res'), 'مزوّد يتطلب مفتاحاً: رسالة')
     pg.fill('input[name=key]', 'k'); pg.fill('input[name=base]', 'ftp://x'); pg.click('form[data-form="aimodel"] button[type=submit]'); pg.wait_for_timeout(100)
-    check('غير صالح' in pg.inner_text('#toasts'), 'عنوان غير http(s): مرفوض')
+    check('غير صالح' in pg.inner_text('#ai-test-res'), 'عنوان غير http(s): مرفوض')
     out = pg.inner_text('#ai-test-res'); pg.click('[data-act="ai-test"]'); pg.wait_for_timeout(100); check('غير صالح' in pg.inner_text('#ai-test-res'), 'اختبار الاتصال يرفض العنوان الفاسد قبل الإرسال')
     check(state(pg, 'nasaq:ai:v1') is None, 'لا شي انحفظ بعد الأخطاء')
     check(not errs, 'بلا أخطاء صفحة: %s' % errs[:2]); ctx.close()
@@ -264,7 +277,7 @@ with sync_playwright() as p:
     # تغيير العنوان إلى مضيف آخر بلا مفتاح جديد ⇒ لا نرسل المفتاح القديم إليه
     pg.click('[data-act="ai-edit"]'); pg.wait_for_selector('form[data-form="aimodel"]'); pg.select_option('select[name=preset]', 'openai'); pg.fill('input[name=model]', 'x')
     pg.click('form[data-form="aimodel"] button[type=submit]'); pg.wait_for_timeout(120)
-    check('يحتاج مفتاح' in pg.inner_text('#toasts') and pg.locator('form[data-form="aimodel"]').count() == 1, 'تغيير المزوّد بلا مفتاح جديد ⇒ يطلب مفتاحاً (لا يُعاد استخدام القديم لمضيف آخر)')
+    check('يحتاج مفتاح' in pg.inner_text('#ai-test-res') and pg.locator('form[data-form="aimodel"]').count() == 1, 'تغيير المزوّد بلا مفتاح جديد ⇒ يطلب مفتاحاً (لا يُعاد استخدام القديم لمضيف آخر)')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(100)
     pg.click('[data-act="ai-del"]'); pg.wait_for_selector('[data-act="dlg-yes"]'); pg.click('[data-act="dlg-yes"]'); pg.wait_for_timeout(250); settle(pg)
     check(state(pg, 'nasaq:ai:v1') is None and pg.locator('.aim').count() == 1 and pg.locator('input[name=aimodel][value=auto]:checked').count() == 1, 'الحذف يمسح النموذج والمفتاح ويرجع للتلقائي')
@@ -349,5 +362,39 @@ export async function CreateMLCEngine(model, opts) {
         if w == 390: pg.screenshot(path='dist/mod-3-dialog-phone.png')
         if w == 1280: pg.screenshot(path='dist/mod-4-dialog-laptop.png')
         pg.keyboard.press('Escape'); ctx.close()
+    print('— 14) إصلاح إضافة النموذج: أخطاء ظاهرة، جلب القائمة، إعادة المحاولة عند الازدحام')
+    ctx, pg, errs = make(b); prefs(pg)
+    pg.click('[data-act="ai-add"]'); pg.wait_for_selector('form[data-form="aimodel"]'); pg.select_option('select[name=preset]', 'gemini')
+    check(pg.locator('input[name=model]').get_attribute('placeholder') == 'gemini-3.8-flash', 'Gemini: مثال الاسم بالخانة')
+    pg.click('form[data-form="aimodel"] button[type=submit]'); pg.wait_for_timeout(200)
+    check('اكتب اسم النموذج' in pg.inner_text('#ai-test-res') and pg.eval_on_selector('input[name=model]', 'e=>e===document.activeElement && e.getAttribute("aria-invalid")==="true"'), 'حفظ بلا اسم: رسالة ثابتة بالنافذة والتركيز على الخانة')
+    pg.fill('input[name=model]', 'x'); pg.click('form[data-form="aimodel"] button[type=submit]'); pg.wait_for_timeout(200)
+    check('يحتاج مفتاح' in pg.inner_text('#ai-test-res') and pg.eval_on_selector('input[name=key]', 'e=>e===document.activeElement'), 'حفظ بلا مفتاح: رسالة والتركيز على المفتاح')
+    pg.fill('input[name=model]', ''); pg.fill('input[name=base]', BASE + '/gemini/v1beta'); LOG.clear()
+    pg.click('[data-act="ai-list"]'); pg.wait_for_timeout(200)
+    check('الصق مفتاح' in pg.inner_text('#ai-test-res') and not LOG, 'جلب القائمة بلا مفتاح: لا طلب ويطلب المفتاح')
+    pg.fill('input[name=key]', 'g-key-1'); pg.click('[data-act="ai-list"]'); pg.wait_for_function("document.querySelectorAll('#ai-dl option').length > 0", timeout=5000)
+    opts = pg.eval_on_selector_all('#ai-dl option', 'e=>e.map(x=>x.value)')
+    check(opts == ['gemini-3.8-pro', 'gemini-3.8-flash'], 'القائمة: نماذج generateContent فقط وبدون «models/»: %s' % opts)
+    q = LOG[-1]; check(q['path'].startswith('/gemini/v1beta/models?') and 'key=' not in q['path'] and q['h'].get('x-goog-api-key') == 'g-key-1', 'الجلب بالترويسة وليس بالرابط')
+    check('لقينا 2' in pg.inner_text('#ai-list-res'), 'يخبر بعدد النماذج')
+    pg.fill('input[name=model]', 'gemini-3.8-flash'); pg.click('form[data-form="aimodel"] button[type=submit]'); pg.wait_for_timeout(250)
+    check(len(state(pg, 'nasaq:ai:v1')['list']) == 1, 'الحفظ بعد اختيار الاسم ينجح'); ctx.close()
+    ctx, pg, errs = make(b); prefs(pg)   # متوافق مع OpenAI
+    pg.click('[data-act="ai-add"]'); pg.wait_for_selector('form[data-form="aimodel"]'); pg.select_option('select[name=preset]', 'custom'); pg.fill('input[name=base]', BASE + '/v1'); pg.fill('input[name=key]', 'sk-test-123')
+    pg.click('[data-act="ai-list"]'); pg.wait_for_function("document.querySelectorAll('#ai-dl option').length > 0", timeout=5000)
+    check(pg.eval_on_selector_all('#ai-dl option', 'e=>e.map(x=>x.value)') == ['alpha-1', 'zeta-1'], 'قائمة OpenAI-compatible مرتبة'); ctx.close()
+    # خطأ مفتاح عند الجلب
+    ctx, pg, errs = make(b); prefs(pg)
+    pg.click('[data-act="ai-add"]'); pg.wait_for_selector('form[data-form="aimodel"]'); pg.select_option('select[name=preset]', 'gemini'); pg.fill('input[name=base]', BASE + '/gemini/v1beta'); pg.fill('input[name=key]', 'wrong')
+    pg.click('[data-act="ai-list"]'); pg.wait_for_function("document.querySelector('#ai-list-res').textContent.includes('403')", timeout=5000); check(True, 'مفتاح خاطئ عند الجلب: رسالة بدل صمت'); ctx.close()
+    # ازدحام 503
+    BUSY['n'] = 0; LOG.clear(); ctx, pg, errs = make(b); ctx.route('https://api.fake-llm.test/**', remote); prefs(pg)
+    r = add_model(pg, 'gemini', 'https://api.fake-llm.test/gemini/v1beta', 'busyalways', 'g-key-1', test=True)
+    n = len([x for x in LOG if 'busyalways' in x['path']]); check('503' in r and n == 1, 'زر الاختبار لا يعيد المحاولة (طلب واحد، 503 ظاهر): n=%d' % n)
+    pg.fill('input[name=model]', 'busy'); pg.click('form[data-form="aimodel"] button[type=submit]'); pg.wait_for_timeout(250); LOG.clear(); BUSY['n'] = 0
+    t0 = time.time(); new_path(pg, 'مسار وقت الازدحام'); done(pg, 40000)
+    nb = len([x for x in LOG if 'models/busy:' in x['path']]); check(nb == 10 and not pg.locator('[data-act="gen-resume"]').count(), '503 مؤقت: أُعيد الطلب تلقائياً وكمل البناء (طلبات=%d)' % nb)
+    check(not errs, 'بلا أخطاء صفحة: %s' % errs[:2]); ctx.close()
     b.close()
 print('\nPROBLEMS:' if problems else '\nNO PROBLEMS'); [print(' -', x) for x in problems]; sys.exit(1 if problems else 0)

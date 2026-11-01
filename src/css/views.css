@@ -275,3 +275,6 @@ pre.code code{font:inherit}
 #ai-test-res{min-height:1.5rem;margin-top:var(--sp-3)}#ai-test-res p{margin:.3rem 0;overflow-wrap:anywhere}
 .resbox{display:flex;gap:var(--sp-4);padding:var(--sp-5);border-radius:var(--r-l);background:var(--paper-2);border:2px solid var(--line);max-width:44rem}
 .resbox>div{display:grid;gap:.65rem;min-width:0;flex:1}.resbox p{margin:0}
+.f-list{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;margin-block:-.3rem .6rem}
+.f-list[hidden]{display:none}
+.dlg input[aria-invalid="true"]{border-color:var(--danger);outline:2px solid var(--danger);outline-offset:1px}

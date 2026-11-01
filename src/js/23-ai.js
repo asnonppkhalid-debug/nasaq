@@ -69,10 +69,10 @@ AI.PRESETS = [
   { id: 'openrouter', name: 'OpenRouter', kind: 'openai', base: 'https://openrouter.ai/api/v1', key: 'req', hint: 'مفتاح من حسابك في OpenRouter. يعطيك نماذج كثيرة من مزوّدين مختلفين، وبعضها رخيص أو مجاني. اكتب اسم النموذج كما يظهر في صفحة النماذج عندهم (بصيغة «مزوّد/نموذج»).' },
   { id: 'deepseek', name: 'DeepSeek', kind: 'openai', base: 'https://api.deepseek.com', key: 'req', hint: 'مفتاح من منصة DeepSeek. اكتب اسم النموذج كما في توثيقهم. إذا المتصفح منع الاتصال المباشر (CORS) ما راح يشتغل بدون وسيط.' },
   { id: 'groq', name: 'Groq', kind: 'openai', base: 'https://api.groq.com/openai/v1', key: 'req', hint: 'مفتاح من Groq. سريع جداً. اكتب اسم النموذج كما يظهر عندهم.' },
-  { id: 'openai', name: 'OpenAI', kind: 'openai', base: 'https://api.openai.com/v1', key: 'req', hint: 'مفتاح من حساب OpenAI. اكتب اسم النموذج كما يظهر عندهم.' },
+  { id: 'openai', name: 'OpenAI', kind: 'openai', base: 'https://api.openai.com/v1', key: 'req', ph: 'اضغط «اجلب النماذج المتاحة»', hint: 'مفتاح من حساب OpenAI. اكتب اسم النموذج كما يظهر عندهم.' },
   { id: 'mistral', name: 'Mistral', kind: 'openai', base: 'https://api.mistral.ai/v1', key: 'req', hint: 'مفتاح من Mistral. اكتب اسم النموذج كما في توثيقهم.' },
   { id: 'anthropic', name: 'Anthropic (Claude بمفتاحك)', kind: 'anthropic', base: 'https://api.anthropic.com/v1', key: 'req', hint: 'مفتاح من حسابك في Anthropic. يُحسب على رصيد الـAPI عندك، مو على اشتراك Claude. نرسل الترويسة اللي تسمح بالاتصال من المتصفح.' },
-  { id: 'gemini', name: 'Google Gemini', kind: 'gemini', base: 'https://generativelanguage.googleapis.com/v1beta', key: 'req', hint: 'مفتاح من Google AI Studio. اكتب اسم النموذج كما يظهر هناك. راجع صفحة أسعارهم، قد يكون فيه مستوى مجاني محدود.' },
+  { id: 'gemini', name: 'Google Gemini', kind: 'gemini', base: 'https://generativelanguage.googleapis.com/v1beta', key: 'req', ph: 'gemini-3.8-flash', hint: 'مفتاح من Google AI Studio. اضغط «اجلب النماذج المتاحة» أو اكتب الاسم (مثل gemini-3.8-flash). أسماء النماذج القديمة تتوقف مع الوقت. راجع صفحة أسعارهم، قد يكون فيه مستوى مجاني محدود.' },
   { id: 'ollama', name: 'Ollama على جهازك', kind: 'openai', base: 'http://localhost:11434/v1', key: 'none', local: true, hint: 'شغّل Ollama على جهازك واكتب اسم النموذج الموجود عندك (الأمر ollama list). السياق الافتراضي 4096 صغير على الدروس، فشغّله مع OLLAMA_CONTEXT_LENGTH=8192. وإذا فتحت نَسَق من نطاق أو من ملف، لازم تسمح له بالمتغير OLLAMA_ORIGINS.' },
   { id: 'lmstudio', name: 'LM Studio على جهازك', kind: 'openai', base: 'http://localhost:1234/v1', key: 'none', local: true, hint: 'شغّل الخادم المحلي من LM Studio وفعّل CORS من إعداداته، واكتب اسم النموذج المحمّل عندك.' },
   { id: 'custom', name: 'خادم آخر متوافق مع OpenAI', kind: 'openai', base: '', key: 'opt', hint: 'أي خادم يدعم المسار chat/completions (مثل vLLM أو llama.cpp أو وسيط خاص بك). اكتب العنوان لحد /v1.' },
@@ -102,7 +102,20 @@ function aiStatus(status, text, c) {
 /* نصوص التفكير (R1 وأمثالها) ليست جزءاً من الجواب */
 const aiPost = t => String(t || '').replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<think>[\s\S]*$/i, '').trim();
 
+const aiSleep = (ms, sig) => new Promise((res, rej) => { const t = setTimeout(res, ms); if (sig) sig.addEventListener('abort', () => { clearTimeout(t); rej({ code: 'cancelled' }); }, { once: true }); });
+/* أخطاء مؤقتة (ازدحام 429/502/503/504) نعيدها تلقائياً مرتين بتأخير متصاعد. الاختبار والجلب يمرّرون retries: 0 */
 async function aiFetch(url, init, o, c) {
+  const tries = o.retries == null ? 2 : o.retries;
+  for (let i = 0; ; i++) {
+    try { return await aiFetch1(url, init, o, c); }
+    catch (e) {
+      const transient = e && (e.status === 503 || e.status === 502 || e.status === 504 || e.code === 'rate_limited');
+      if (i >= tries || !transient || AI.local(c)) throw e;
+      await aiSleep(2500 * (i + 1), o.signal);
+    }
+  }
+}
+async function aiFetch1(url, init, o, c) {
   if (o.signal && o.signal.aborted) throw { code: 'cancelled' };
   const ctl = new AbortController(); let timedOut = false, res, text = '';
   const onAbort = () => ctl.abort();
@@ -193,7 +206,23 @@ async function callWeb(c, prompt, o) {
 }
 AI.callCfg = (c, prompt, o) => ({ openai: callOpenAI, anthropic: callAnthropic, gemini: callGemini, webllm: callWeb })[c.kind](c, prompt, o);
 /* اختبار اتصال: طلب صغير. لا نحدّد حد رموز إلا حيث يلزم (Anthropic) لأن بعض النماذج ترفضه */
-AI.test = (c, o = {}) => AI.callCfg(c, 'ردّ بكلمة واحدة فقط: تمام', Object.assign({ timeout: AI.local(c) ? 90000 : 25000, maxTokens: c.kind === 'anthropic' ? 64 : 0 }, o));
+AI.test = (c, o = {}) => AI.callCfg(c, 'ردّ بكلمة واحدة فقط: تمام', Object.assign({ retries: 0, timeout: AI.local(c) ? 90000 : 25000, maxTokens: c.kind === 'anthropic' ? 64 : 0 }, o));
+
+/* قائمة النماذج المتاحة عند المزوّد (معرّفات فقط) */
+AI.listModels = async function (c) {
+  const o = { retries: 0, timeout: 20000 };
+  if (c.kind === 'gemini') {
+    const j = await aiFetch(c.base + '/models?pageSize=200', { method: 'GET', headers: { 'x-goog-api-key': c.key } }, o, c);
+    return (j.models || []).filter(m => !m.supportedGenerationMethods || m.supportedGenerationMethods.includes('generateContent')).map(m => String(m.name || '').replace(/^models\//, '')).filter(Boolean).sort().reverse();
+  }
+  if (c.kind === 'anthropic') {
+    const j = await aiFetch(c.base + '/models?limit=100', { method: 'GET', headers: { 'x-api-key': c.key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' } }, o, c);
+    return (j.data || []).map(m => m.id).filter(Boolean);
+  }
+  const headers = {}; if (c.key) headers.Authorization = 'Bearer ' + c.key;
+  const j = await aiFetch(c.base + '/models', { method: 'GET', headers }, o, c);
+  return (Array.isArray(j.data) ? j.data : (Array.isArray(j.models) ? j.models : [])).map(m => (typeof m === 'string' ? m : m.id || m.name)).filter(Boolean).sort();
+};
 
 /* يرجع نصاً. o: { json, signal, tier, command, label, payload }. يرفض دائماً بكائن { code } */
 AI.ask = async function (prompt, o = {}) {
