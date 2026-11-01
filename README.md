@@ -65,3 +65,9 @@ python3 tests/graph_shot.py     # لقطة الشبكة
 NASAQ.setAssistantProvider(async (payload) => 'الرد نصاً')   // payload: { command, question, context, prompt, json }
 ```
 بدون مزوّد ولا `sample` يبقى المساعد عرضاً تجريبياً، وبنّاء المسارات يعرض رسالة صادقة أن الخدمة غير مربوطة.
+
+## النشر على GitHub Pages
+1. ارفع محتوى المجلد كاملاً لمستودع (الملف `index.html` بالجذر).
+2. من المستودع: Settings ← Pages ← Source: «Deploy from a branch» ← Branch: `main` / مجلد `/ (root)` ← Save.
+3. يفتح الموقع على `https://USERNAME.github.io/REPO/`. بعد أي تعديل بالمصدر شغّل `bash build.sh` وارفع `index.html` الجديد.
+المفاتيح تُحفظ بمتصفح كل مستخدم فقط، ولا تدخل المستودع.
